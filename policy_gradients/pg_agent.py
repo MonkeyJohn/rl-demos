@@ -1,6 +1,9 @@
 import gym
 import numpy as np
 
+def map_action_space(action_space):
+	pass
+	
 class PGAgent:
 	def __init__(self, model, batch_size, gamma):
 		self.model = model
@@ -28,12 +31,13 @@ class PGAgent:
 			x = cur_x - prev_x if prev_x is not None else np.zeros(inp_dim)
 			prev_x = cur_x
 
-			action_prob = self.model.forward(x)
-			action = np.random.choice(action_space, replace=False, action_prob)
+			action_probs = self.model.forward(x)
+			action = np.random.choice(action_space, 1, replace=False, action_probs)
 
 			observation, reward, done, info = env.step(action)
 			reward_sum += reward
 
+			temp_act = action - min(action_space)
 			self.model.record(x, action, reward)
 
 			if done:
