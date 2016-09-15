@@ -26,14 +26,15 @@ class PGAgent:
 			assert cur_x.shape[1] == inp_dim, "input obs and model input not matching dimension"
 			#assert len(action_space) == out_dim, "no. of env actions and model out_dim not matching"
 			
-			x = cur_x - prev_x if prev_x is not None else np.zeros((1,inp_dim))
-			prev_x = cur_x
+			#x = cur_x - prev_x if prev_x is not None else np.zeros((1,inp_dim))
+			#prev_x = cur_x
+			x = cur_x
 
-			#action_probs = self.model.predict(x)
+			action_probs = self.model.predict(x)
 			#print action_probs
-			#action = np.random.choice(action_space, 1, replace=False, p=action_probs[0])[0]
-			tfprob = self.model.predict(x)
-			action = 1 if np.random.uniform() < tfprob else 0
+			action = np.random.choice(action_space, 1, replace=False, p=action_probs[0])[0]
+			#tfprob = self.model.predict(x)
+			#action = 1 if np.random.uniform() < tfprob else 0
 			observation, reward, done, info = env.step(action)
 			reward_sum += reward
 

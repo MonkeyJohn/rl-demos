@@ -20,11 +20,19 @@ class FCNet:
 		self.input_layer, self.action_probs = self.create_network()
 		self.network_params = tf.trainable_variables()
 		
-		#self.y_fake_label = tf.placeholder(tf.float32, shape=[None, out_dim], name='fake_label')
-		self.y_fake_label = tf.placeholder(tf.float32, shape=[None, 1], name='fake_label')
+		self.y_fake_label = tf.placeholder(tf.float32, shape=[None, out_dim], name='fake_label')
+		#self.y_fake_label = tf.placeholder(tf.float32, shape=[None, 1], name='fake_label')
 		self.reward_signal = tf.placeholder(tf.float32, name='reward_signal')
 
-		self.loss = -tf.reduce_mean(tf.log(self.y_fake_label - self.action_probs) * self.reward_signal)
+		#self.loss = -tf.reduce_mean(tf.log(self.y_fake_label - self.action_probs) * self.reward_signal)
+		"""self.logprobs = tf.log(tf.reduce_sum(tf.mul(self.y_fake_label, self.action_probs), 1))
+		self.loss = -tf.reduce_mean(self.logprobs*tf.squeeze(self.reward_signal))
+		#self.loss = -tf.reduce_mean(self.logprobs*self.reward_signal)"""
+
+		logprobs = tf.nn.log_softmax(softmax_inputs)
+		action_probs = tf.exp(logprobs)
+		logp = tf.reduce_sum(logprobs * y_label, [1])  # y_label is at one-hot representation here
+		loss = - tf.reduce_mean(logp * advantage)
 		self.gradients = tf.gradients(self.loss, self.network_params)
 
 		
@@ -35,29 +43,29 @@ class FCNet:
 
 
 	def create_network(self):
-		"""input_layer = tflearn.input_data(shape=[None, self.inp_dim])
+		input_layer = tflearn.input_data(shape=[None, self.inp_dim])
 		dense = tflearn.fully_connected(input_layer, 10, activation='relu', name='hidden_layer')
-		#action_probs = tflearn.fully_connected(dense, self.out_dim, activation='softmax')
-		action_probs = tflearn.fully_connected(dense, 1, activation='softmax')
+		action_probs = tflearn.fully_connected(dense, self.out_dim, activation='softmax')
+		#action_probs = tflearn.fully_connected(dense, 1, activation='softmax')
 
-		return input_layer, action_probs"""
+		return input_layer, action_probs
 
-		observations = tf.placeholder(tf.float32, [None,4] , name="input_x")
+		"""observations = tf.placeholder(tf.float32, [None,4] , name="input_x")
 		W1 = tf.get_variable("W1", shape=[4, 10],
 		           initializer=tf.contrib.layers.xavier_initializer())
 		layer1 = tf.nn.relu(tf.matmul(observations,W1))
 		W2 = tf.get_variable("W2", shape=[10, 1],
 		           initializer=tf.contrib.layers.xavier_initializer())
 		score = tf.matmul(layer1,W2)
-		probability = tf.nn.sigmoid(score)
+		probability = tf.nn.sigmoid(score)"""
 
 		return observations, probability
 
 
 	def build_train_data(self):
-		N = len(self.actions)
-		#y = np.eye(self.out_dim)[self.actions]
-		return np.vstack(self.X), np.vstack(self.ys), np.vstack(self.rs)
+		N = len(self.ys)
+		y = np.eye(self.out_dim)[self.ys]
+		return np.vstack(self.X), y, np.vstack(self.rs)
 
 	def update_params(self):
 		feed_dict = {}
@@ -95,9 +103,10 @@ class FCNet:
 
 	def record(self, x, action, reward):
 		self.X.append(x)
-		y = 1 if action == 0 else 0 # a "fake label"
-		self.ys.append(y)
-		self.actions.append(action)
+		#y = 1 if action == 0 else 0 # a "fake label"
+		#self.ys.append(y)
+		self.ys.append(action)
+		#self.actions.append(action)
 		self.rs.append(reward)
 
 
