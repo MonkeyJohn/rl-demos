@@ -7,16 +7,14 @@ def main():
 	state_dim = env.observation_space.shape[0]
 	action_dim = env.action_space.n
 
-	model = FCNet(state_dim, action_dim)
+	model = FCNet(state_dim, 10, action_dim)
 	batch_size = 50
-	max_episodes = 5000
-	agent = PGAgent(model, batch_size, max_episodes)
+	max_episodes = 4000
+	agent = PGAgent(env, 'CartPole-v0', model, gamma=0.99)
 
-	render= False
-	resume= False
-	action_space = [0, 1]
+	render=False
+	agent.learn(render, 4000, 50, False)
 
-	agent.train(env, resume, render, action_space, gamma=0.99)
 
 
 
