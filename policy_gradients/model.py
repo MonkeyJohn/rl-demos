@@ -30,9 +30,10 @@ class FCNet:
 
 		
 		self.grads_buffer_ph = [tf.placeholder(tf.float32) for i in range(len(self.gradients))]
-		#rmsprop = tf.train.RMSPropOptimizer(learning_rate=lr, decay=decay_rate)
-		adam = tf.train.AdamOptimizer(learning_rate=lr)
-		self.update = adam.apply_gradients(zip(self.grads_buffer_ph, self.network_params))
+		rmsprop = tf.train.RMSPropOptimizer(learning_rate=lr, decay=decay_rate)
+		#adam = tf.train.AdamOptimizer(learning_rate=lr)
+		#self.update = adam.apply_gradients(zip(self.grads_buffer_ph, self.network_params))
+		self.update = rmsprop.apply_gradients(zip(self.grads_buffer_ph, self.network_params))
 
 
 	def create_network(self):

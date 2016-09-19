@@ -12,13 +12,12 @@ class PGAgent:
 		s_shape = env.observation_space.shape
 		a_dim = env.action_space.n
 		if pre_processor:
-			self.inp_shape = pre_processor(np.zeros(s_dim)).shape
+			self.inp_shape = pre_processor(np.zeros(s_shape)).shape
 		else:
 			self.inp_shape = s_shape
 
 		self.inp_dim = np.product(self.inp_shape)
 		self.out_dim = a_dim if action_space is None else len(action_space)
-
 		assert self.inp_dim == self.model.inp_dim, "Agent state dim and Model input dim not matching!"
 		assert self.out_dim == self.model.out_dim, "Agent action dim and Model output dim not matching!"
 
