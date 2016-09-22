@@ -91,3 +91,5 @@ ENV/
 cartpole/log/
 policy_gradients/logs/
 policy_gradients/saved_models/
+policy_gradients/cfg/
+policy_gradients/tmp/

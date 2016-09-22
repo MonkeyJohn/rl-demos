@@ -25,22 +25,24 @@ class PGAgent:
 		self.map_action = map_action
 		self.action_space = range(a_dim) if action_space is None else action_space
 
+		self.model.initialize()
 		self.train = True
 		if resume:
 			self.model.load_model()
 			self.train = False
 
 
-	def learn(self, render, max_episodes, batch_size, diff_frame=True, save_after=1000):
+	def learn(self, render=False, max_episodes=1000, batch_size=10, diff_frame=True, save_after=1000):
 		env, env_name = self.env, self.env_name
 		observation = env.reset()
 		running_reward = None
 		reward_sum = 0
 		episode_number = 0
-		self.model.initialize()
+		
 
 		prev_x = None
 		while episode_number <= max_episodes:
+			#print episode_number
 			if render: env.render()
 			
 			cur_x = self.pre_processor(observation) if self.pre_processor else observation.reshape((1,self.inp_dim))
@@ -75,12 +77,12 @@ class PGAgent:
 					print 'Ep No %d, Average Reward per episode %f' % (episode_number, reward_sum/float(batch_size))
 					reward_sum = 0
 
-				if self.train and episode_number % save_after == 0:
-					print "Saving Model!"
-					self.model.save_model()
+				#if self.train and episode_number % save_after == 0:
+					#print "Saving Model!"
+					#self.model.save_model()
 
 				running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
-				self.model.record_summary(reward_sum, episode_number)
+				#self.model.record_summary(reward_sum, episode_number)
 				observation = env.reset()
 				prev_x = None
 

@@ -10,7 +10,7 @@ def main():
 	model = FCNet(state_dim, 10, action_dim)
 	batch_size = 50
 	max_episodes = 4000
-	agent = PGAgent(env, 'CartPole-v0', model, gamma=0.99)
+	agent = PGAgent(env, 'CartPole-v0', model, gamma=0.99, resume=False)
 
 	render=False
 	agent.learn(render, 4000, 50, False)
