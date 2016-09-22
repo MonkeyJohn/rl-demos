@@ -5,7 +5,9 @@ import sys, os
 tf.logging.set_verbosity(tf.logging.ERROR)
 
 class FCNet:
-	def __init__(self, inp_dim, num_hidden, out_dim, lr=1e-2, decay_rate=0.99, log_dir="logs/", model_dir="saved_models/", model_name="model"):
+	def __init__(self, inp_dim, num_hidden, out_dim, lr=1e-2, decay_rate=0.99, 
+			log_dir="logs/", model_dir="saved_models/", model_name="model"):
+
 		self.sess = tf.Session()
 		self.inp_dim = inp_dim
 		self.num_hidden = num_hidden
@@ -29,18 +31,24 @@ class FCNet:
 		self.gradients = tf.gradients(self.loss, self.network_params)
 
 		
-		self.grads_buffer_ph = [tf.placeholder(tf.float32) for i in range(len(self.gradients))]
-		rmsprop = tf.train.RMSPropOptimizer(learning_rate=lr, decay=decay_rate)
-		#adam = tf.train.AdamOptimizer(learning_rate=lr)
-		#self.update = adam.apply_gradients(zip(self.grads_buffer_ph, self.network_params))
-		self.update = rmsprop.apply_gradients(zip(self.grads_buffer_ph, self.network_params))
+		self.grads_buffer_ph = [tf.placeholder(tf.float32) 
+								for i in range(len(self.gradients))]
+		#rmsprop = tf.train.RMSPropOptimizer(learning_rate=lr, decay=decay_rate)
+		adam = tf.train.AdamOptimizer(learning_rate=lr)
+		self.update = adam.apply_gradients(zip(self.grads_buffer_ph, 
+											self.network_params))
+		#self.update = rmsprop.apply_gradients(zip(self.grads_buffer_ph, 
+		#										self.network_params))
 
 
 	def create_network(self):
 		import tflearn
-		input_layer = tflearn.input_data(shape=[None, self.inp_dim], name='input_layer')
-		dense = tflearn.fully_connected(input_layer, self.num_hidden, activation='relu', name='hidden_layer')
-		action_probs = tflearn.fully_connected(dense, self.out_dim, activation='softmax', name='softmax_probs')
+		input_layer = tflearn.input_data(shape=[None, self.inp_dim], 
+									name='input_layer')
+		dense = tflearn.fully_connected(input_layer, self.num_hidden, 
+									activation='relu', name='hidden_layer', weights_init='xavier')
+		action_probs = tflearn.fully_connected(dense, self.out_dim, 
+									activation='softmax', name='softmax_probs', weights_init='xavier')
 
 		return input_layer, action_probs
 
@@ -48,7 +56,7 @@ class FCNet:
 	def build_train_data(self):
 		N = len(self.ys)
 		y = np.eye(self.out_dim)[self.ys]
-		return np.vstack(self.X), y, np.vstack(self.rs)
+		return np.vstack(self.X), y
 
 	def update_params(self):
 		feed_dict = {}
@@ -61,7 +69,7 @@ class FCNet:
 			self.grads_buffer[i] = grad*0
 
 	def calculate_gradients(self, discounted_rewards):
-		inputs, y_labels, rewards = self.build_train_data()
+		inputs, y_labels = self.build_train_data()
 		gradients = self.sess.run(self.gradients, feed_dict={
 				self.input_layer: inputs,
 				self.y_labels: y_labels,
@@ -156,10 +164,12 @@ class FCNetDistributed:
 			self.input_layer = nn.input_data(shape=[None, self.inp_dim], 
 										name='input_layer')
 			dense = nn.fully_connected(self.input_layer, 200, 
-										activation='relu', name='hidden_layer')
+										activation='relu', name='hidden_layer',
+										weights_init='xavier')
 			self.action_probs = nn.fully_connected(dense, self.out_dim, 
 										activation='softmax', 
-										name='softmax_probs')
+										name='softmax_probs',
+										weights_init='xavier')
 
 			self.network_params = tf.trainable_variables()
 			self.y_labels = tf.placeholder(tf.float32, 
@@ -175,9 +185,10 @@ class FCNetDistributed:
 			self.gradients = tf.gradients(self.loss, self.network_params)
 			self.grads_buffer_ph = [tf.placeholder(tf.float32) 
 									for i in range(len(self.gradients))]
-			rmsprop = tf.train.RMSPropOptimizer(learning_rate=lr, 
-												decay=decay_rate)
-			self.update = rmsprop.apply_gradients(zip(self.grads_buffer_ph, 					self.network_params), 
+			#optimizer = tf.train.RMSPropOptimizer(learning_rate=lr, 
+			#									decay=decay_rate)
+			optimizer = tf.train.AdamOptimizer(learning_rate=lr)
+			self.update = optimizer.apply_gradients(zip(self.grads_buffer_ph, 					self.network_params), 
 									global_step=self.global_step)
 
 			saver = tf.train.Saver()
