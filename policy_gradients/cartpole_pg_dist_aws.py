@@ -1,5 +1,4 @@
 import tensorflow as tf
-from util import create_cluster
 import gym
 from model import FCNetDistributed
 from pg_agent import PGAgent
@@ -21,13 +20,35 @@ tf.app.flags.DEFINE_integer("batch_size", 128 , "Batch size")
 flags = tf.app.flags.FLAGS
 
 
+DEFAULT_PORT = 5555
+def cluster_config(flags):
+	n_nodes, node_id, n_ps = flags.n_nodes, flags.node_id, flags.n_ps
+	config = {}
+	config['ps_hosts'] = ['master:%d' % DEFAULT_PORT]
+	config['worker_hosts'] = []
+	host_base = 'node0'
+	for i in range(1, n_nodes):
+		if i < n_ps:
+			n_str = str(i) if i >= 10 else '0' + str(i)
+			config['ps_hosts'].append(host_base + n_str + ':' + str(DEFAULT_PORT + i))
+		else:
+			n_str = str(i) if i >= 10 else '0' + str(i)
+			config['worker_hosts'].append(host_base + n_str +  ':' + str(DEFAULT_PORT + i))
+
+	if node_id < n_ps:
+		config['job'] = 'ps'
+		config['task_id'] = node_id
+	else:
+		config['job'] = 'worker'
+		config['task_id'] = node_id - n_ps
+
+	return config
 
 def main(args):
 	if not os.path.isdir(flags.config_path):
 		os.makedirs(flags.config_path)
 
-	config = create_cluster(flags.node_id, flags.config_path, flags.n_nodes,
-							flags.n_ps, flags.timeout)
+	config = cluster_config(flags)
 	# Create a cluster from the parameter server and worker hosts.
 	cluster = tf.train.ClusterSpec({"ps": config['ps_hosts'],
 									"worker": config['worker_hosts']})
