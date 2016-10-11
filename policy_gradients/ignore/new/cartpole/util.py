@@ -1,5 +1,5 @@
 def cluster_config(flags):
-	DEFAULT_PORT = 7777
+	DEFAULT_PORT = 6777
 	n_nodes, node_id, n_ps = flags.n_nodes, flags.node_id, flags.n_ps
 	config = {}
 	config['ps_hosts'] = ['master:%d' % DEFAULT_PORT]

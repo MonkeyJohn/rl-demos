@@ -39,6 +39,7 @@ def two_layer_network(inp_dim, num_hidden, out_dim, lr=1e-2, decay_rate=0.99, mo
 	summary_ops = tf.merge_all_summaries()
 
 	model = {}
+	model['inp_dim'], model['out_dim'] = inp_dim, out_dim
 	model['input_layer_ph'], model['y_labels_ph'] = input_layer, y_labels
 	model['advantage_ph'], model['grads_buffer_ph'] = advantage, grads_buffer_ph
 	model['network_params'] = network_params

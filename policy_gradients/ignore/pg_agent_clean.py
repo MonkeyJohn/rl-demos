@@ -19,6 +19,9 @@ class PGAgent:
 		self.inp_dim = np.product(self.inp_shape)
 		self.out_dim = a_dim if action_space is None else len(action_space)
 
+		assert self.inp_dim == self.model['inp_dim'], "Agent state dim and Model input dim not matching!"
+		assert self.out_dim == self.model['out_dim'], "Agent action dim and Model output dim not matching!"
+
 		self.map_action = map_action
 		self.action_space = range(a_dim) if action_space is None else action_space
 
@@ -35,6 +38,7 @@ class PGAgent:
 		running_reward = None
 		reward_sum = 0
 		episode_number = 0
+		episode_reward = 0
 		
 		model = self.model
 		input_layer_ph = model['input_layer_ph']
@@ -71,6 +75,7 @@ class PGAgent:
 										replace=False, p=action_probs)[0]
 			observation, reward, done, info = env.step(action)
 			reward_sum += reward
+			episode_reward += reward
 
 			if self.map_action:
 				action = self.map_action(self.action_space, action)
@@ -96,7 +101,7 @@ class PGAgent:
 						grads_buffer[i] += grad
 
 				xs, ys, rs = [], [], []
-				
+
 				if episode_number % batch_size == 0:
 					if self.train:
 						print 'Updating Params!!'
@@ -113,9 +118,10 @@ class PGAgent:
 					reward_sum = 0
 
 
-				running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
+				running_reward = reward_sum if running_reward is None else running_reward * 0.99 + episode_reward * 0.01
 				observation = env.reset()
 				prev_x = None
+				episode_reward = 0
 
 			# pong specific
 			if self.env_name=='Pong-v0' and reward != 0:

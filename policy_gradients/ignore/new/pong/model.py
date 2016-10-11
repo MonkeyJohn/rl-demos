@@ -1,8 +1,5 @@
 import tensorflow as tf
 
-tf.logging.set_verbosity(tf.logging.ERROR)
-
-
 def two_layer_net(inp_dim, num_hidden, out_dim):
     S = tf.placeholder(shape=(None, inp_dim), dtype=tf.float32, name='obs')
     A = tf.placeholder(shape=(None,), dtype=tf.int32, name='acts')
@@ -28,8 +25,7 @@ def two_layer_net(inp_dim, num_hidden, out_dim):
 
     # split minimize into compute and apply gradients for optional gradient
     # processing (logging, clipping,...)
-    #optimizer = tf.train.RMSPropOptimizer(learning_rate=1e-4, decay=0.99)
-    optimizer = tf.train.AdamOptimizer(learning_rate=1e-3)
+    optimizer = tf.train.AdamOptimizer(0.01)
     grads_and_vars = optimizer.compute_gradients(loss)
     optimizer = optimizer.apply_gradients(grads_and_vars,
                                           global_step=global_step)
@@ -40,7 +36,6 @@ def two_layer_net(inp_dim, num_hidden, out_dim):
     init_op = tf.initialize_all_variables()
 
     model = {}
-    model['inp_dim'], model['num_hidden'], model['out_dim'] = inp_dim, num_hidden, out_dim
     model['input_ph'], model['actions_ph'], model['advantage_ph'] = S, A, Adv
     model['net'], model['loss'], model['optimizer'] = net, loss, optimizer
     model['saver'], model['init_op'], model['global_step'] = saver, init_op, global_step
