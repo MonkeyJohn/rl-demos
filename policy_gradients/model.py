@@ -2,7 +2,6 @@ import tensorflow as tf
 
 tf.logging.set_verbosity(tf.logging.ERROR)
 
-
 def two_layer_net(inp_dim, num_hidden, out_dim):
     S = tf.placeholder(shape=(None, inp_dim), dtype=tf.float32, name='obs')
     A = tf.placeholder(shape=(None,), dtype=tf.int32, name='acts')
@@ -15,7 +14,7 @@ def two_layer_net(inp_dim, num_hidden, out_dim):
     #net = nn.dropout(net, 0.8)
     # could use sigmoid for only 2 actions, but this is more general
     net = nn.fully_connected(net, out_dim, activation='softmax')
-
+    network_params = tf.trainable_variables()
     # probabilities of selected actions
     # note: need to reduce to single dimension because of tf
     # indexing limitations
@@ -29,9 +28,11 @@ def two_layer_net(inp_dim, num_hidden, out_dim):
     # split minimize into compute and apply gradients for optional gradient
     # processing (logging, clipping,...)
     #optimizer = tf.train.RMSPropOptimizer(learning_rate=1e-4, decay=0.99)
+    gradients = tf.gradients(loss, network_params)
+    grads_buffer_ph = [tf.placeholder(tf.float32) for i in range(len(gradients))]
+
     optimizer = tf.train.AdamOptimizer(learning_rate=1e-3)
-    grads_and_vars = optimizer.compute_gradients(loss)
-    optimizer = optimizer.apply_gradients(grads_and_vars,
+    optimizer = optimizer.apply_gradients(zip(grads_buffer_ph, network_params),
                                           global_step=global_step)
 
     # create ops for saving, logging and initializing
@@ -42,6 +43,8 @@ def two_layer_net(inp_dim, num_hidden, out_dim):
     model = {}
     model['inp_dim'], model['num_hidden'], model['out_dim'] = inp_dim, num_hidden, out_dim
     model['input_ph'], model['actions_ph'], model['advantage_ph'] = S, A, Adv
+    model['gradients'], model['grads_buffer_ph'] = gradients, grads_buffer_ph
+    model['network_params'] = network_params
     model['net'], model['loss'], model['optimizer'] = net, loss, optimizer
     model['saver'], model['init_op'], model['global_step'] = saver, init_op, global_step
 

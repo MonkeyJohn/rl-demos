@@ -84,13 +84,15 @@ def main(arg):
             actions = np.array(map(int, FLAGS.actions.split(',')))
             n_actions = actions.size
 
-            running_reward = tf.Variable(0., name="running_reward")
+            running_reward = tf.placeholder(tf.float32, name="running_reward")
             tf.scalar_summary("Running Reward", running_reward)
             summary_op = tf.merge_all_summaries()
-            model = two_layer_net(FLAGS.inp_dim, 200, FLAGS.out_dim)
+            model = two_layer_net2(FLAGS.inp_dim, 200, FLAGS.out_dim)
 
             S, A, Adv = model['input_ph'], model['actions_ph'], model['advantage_ph']
             net, optimizer, loss = model['net'], model['optimizer'], model['loss']
+            gradients_op, grads_buffer_ph = model['gradients'], model['grads_buffer_ph']
+            network_params = model['network_params']
             saver, init_op, global_step = model['saver'], model['init_op'], model['global_step']
 
 
@@ -116,11 +118,17 @@ def main(arg):
             avg_reward = None  # running average episode reward
             local_step = 0  # local training steps performed
             n_e = 0
+            grads_buffer = sess.run(network_params)
+
             # Loop until the supervisor shuts down or max steps have completed.
             while not sv.should_stop() and step < FLAGS.num_steps:
                 # get data by interacting with env using current policy
                 obs, acts, returns = None, None, None
                 rwds = 0
+
+                for i,grad in enumerate(grads_buffer):
+                   grads_buffer[i] = grad*0
+
                 for e in range(FLAGS.num_episodes):
                     # get a single episode
                     o_n, a_n, r_n = run_episode(env,model,server,logdir,actions,diff_frame,preprocess)
@@ -133,18 +141,23 @@ def main(arg):
                     rwds += r
                     avg_reward = r if avg_reward is None\
                         else .99 * avg_reward + .01 * r
-                    obs = o_n if obs is None else np.append(obs, o_n, axis=0)
-                    acts = a_n if acts is None else np.append(acts, a_n)
-                    returns = disc_r if returns is None else np.append(returns,
-                                                                       disc_r)
+
+                    gradients = sess.run(gradients_op, feed_dict={S: o_n,
+                                                                  A: a_n,
+                                                                  Adv: disc_r})
+                    for i,grad in enumerate(gradients):
+                        grads_buffer[i] += grad
+
                     n_e +=1
 
                 # feed trajectories to pg training
-                _, step_loss, step, summary = sess.run([optimizer, loss, global_step, summary_op],
-                                              feed_dict={S: obs,
-                                                         A: acts,
-                                                         Adv: returns,
-                                                         running_reward: avg_reward})
+                feed_dict = {}
+                for i, grad in enumerate(grads_buffer_ph):
+                    feed_dict[grads_buffer_ph[i]] = grads_buffer[i]
+                feed_dict[running_reward] = avg_reward
+
+                _, step, summary = sess.run([optimizer, global_step, summary_op],
+                                              feed_dict=feed_dict)
                 writer.add_summary(summary, n_e)
                 num = FLAGS.num_episodes
                 print('step %d, rew %1.3f, avg reward for %d episodes is %1.3f' % (local_step, avg_reward, num, rwds/num))

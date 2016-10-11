@@ -100,7 +100,7 @@ def run_episode(env, model, server, checkpoint_dir, actions, diff_frame=True, pr
             x = cur_x - prev_x if prev_x is not None else np.zeros((1, cur_x.size))
         else:
             x = cur_x
-            
+
         prev_x = cur_x
         feed_dict = {input_ph: x}
 
