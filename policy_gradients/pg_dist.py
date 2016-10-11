@@ -87,7 +87,7 @@ def main(arg):
             running_reward = tf.placeholder(tf.float32, name="running_reward")
             tf.scalar_summary("Running Reward", running_reward)
             summary_op = tf.merge_all_summaries()
-            model = two_layer_net2(FLAGS.inp_dim, 200, FLAGS.out_dim)
+            model = two_layer_net(FLAGS.inp_dim, 200, FLAGS.out_dim)
 
             S, A, Adv = model['input_ph'], model['actions_ph'], model['advantage_ph']
             net, optimizer, loss = model['net'], model['optimizer'], model['loss']
