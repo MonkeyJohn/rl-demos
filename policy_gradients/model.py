@@ -49,3 +49,46 @@ def two_layer_net(inp_dim, num_hidden, out_dim):
     model['saver'], model['init_op'], model['global_step'] = saver, init_op, global_step
 
     return model
+
+
+def two_layer_net_a3c(inp_dim, out_dim, num_hidden=20, lr=1e-3, decay=0.99):
+    states = tf.placeholder(shape=(None, inp_dim), dtype=tf.float32, name='obs')
+    actions = tf.placeholder(shape=(None, out_dim), dtype=tf.float32, name='acts')
+    rewards = tf.placeholder(shape=(None,), dtype=tf.float32, name='advs')
+
+    import tflearn as nn
+    net = nn.fully_connected(states, num_hidden, activation='relu')
+
+    probs = nn.fully_connected(net, out_dim, activation='softmax')
+    value = nn.fully_connected(net, 1, activation='linear')
+
+    params = tf.trainable_variables()
+    policy_params = params[:2] + params[2:4]
+    value_params =  params[:2] + params[4:]
+
+    logprobs = tf.log(tf.reduce_sum(tf.mul(actions, probs), 1))
+
+    probs_loss = -tf.reduce_mean(logprobs*(rewards - value))
+    value_loss = tf.reduce_mean(tf.square(rewards - value))
+
+    loss = probs_loss + 0.5*value_loss
+    optimizer = tf.train.AdamOptimizer(learning_rate=lr)
+    optimize = optimizer.minimize(loss)
+
+    saver = tf.train.Saver()
+    init_op = tf.initialize_all_variables()
+    running_reward = tf.placeholder(tf.float32, name='running_reward')
+    episode_reward = tf.placeholder(tf.float32, name='episode_reward')
+    tf.scalar_summary("Running Reward", running_reward)
+    tf.scalar_summary("Episode Reward", episode_reward)
+    summary_op = tf.merge_all_summaries()
+
+    model = {}
+    model['inp_dim'], model['out_dim'] = inp_dim, out_dim
+    model['states'], model['actions'], model['rewards'] = states,actions,rewards
+    model['probs'], model['value'] = probs, value
+    model['optimize'] = optimize
+    model['saver'], model['init_op'], model['summary_op'] = saver,init_op,summary_op
+    model['running_reward'], model['episode_reward'] = running_reward, episode_reward
+
+    return model 

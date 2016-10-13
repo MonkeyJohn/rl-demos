@@ -8,29 +8,8 @@ General utilities for policy gradient methods
 '''
 
 
-def prepro(I, bg_colors=[144, 109]):
-    """ Atari frame preprocessing (Karpathy)
 
-    Reduces atari color frame to 80x80 B&W image
-    prepro 210x160x3 uint8 frame into 6400 (80x80) 1D float vector
-
-    Args:
-        I (ndarray): 210x160x3 uint8 frame
-        bg_colors (iterable): list of uint8 colors to zero out
-
-    Returns:
-         numpy array (1,6400) with dtype float representing 80x80 B&W image
-    """
-    I = I[35:195]  # crop
-    I = I[::2, ::2, 0]  # downsample by factor of 2
-    for c in bg_colors:
-        I[I == c] = 0  # erase background
-    I[I != 0] = 1  # everything else (paddles, ball) just set to 1
-    return I.astype(np.float).reshape((1, -1))
-
-
-
-def discount_rewards(r, gamma, env_name):
+def discount_rewards(r, gamma, env_name, initial=None):
     """ take 1D float array of rewards and compute discounted reward
     Args:
         r:  1D array of episode reward
@@ -41,7 +20,7 @@ def discount_rewards(r, gamma, env_name):
 
     """
     discounted_r = np.zeros_like(r)
-    running_add = 0
+    running_add = 0 if initial is None else initial
     for t in reversed(xrange(0, r.size)):
         if env_name == 'Pong-v0':
             if r[t] != 0:               
@@ -122,3 +101,40 @@ def run_episode(env, model, server, checkpoint_dir, actions, diff_frame=True, pr
 #        if reward != 0: # Pong has either +1 or -1 reward exactly when game ends.
 #            print ('ep %d: game finished, reward: %f' % (n_e, reward)) + ('' if reward == -1 else ' !!!!!!!!')
     return [np.vstack(xs), np.array(acts), np.array(rs)]
+
+
+def run_episode_a3c(env, model, sess, actions, s_t=None,terminal=False, diff_frame=True, preprocess=None):
+    t_max = 200
+
+    state_ph, probs = model['states'], model['probs']
+    
+    xs, acts, rs = [], [], []
+    t = 0
+    observation = env.reset() if s_t is None else s_t
+    prev_x = None
+
+    while not (terminal or (t==t_max)):
+        if preprocess:
+            cur_x = preprocess(observation)
+        else:
+            cur_x = observation.reshape((1, observation.shape[0]))
+        # set input to network to be difference image
+        if diff_frame:
+            x = cur_x - prev_x if prev_x is not None else np.zeros((1, cur_x.size))
+            prev_x = cur_x
+        else:
+            x = cur_x
+
+        aprob = sess.run(probs, feed_dict={state_ph: x})[0]
+        act = np.random.choice(actions.size, p=aprob.flatten())
+        observation, r_t, terminal, info = env.step(actions[act])
+
+        xs.append(x)
+        acts.append(act)
+        #r_t = np.clip(r_t, -1, 1)
+        rs.append(r_t)
+
+        t += 1
+
+
+    return (np.vstack(xs), np.array(acts), np.array(rs), observation, terminal)
