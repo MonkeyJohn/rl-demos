@@ -1,3 +1,5 @@
+import numpy as np
+
 def cluster_config(flags):
 	DEFAULT_PORT = 7777
 	n_nodes, node_id, n_ps = flags.n_nodes, flags.node_id, flags.n_ps

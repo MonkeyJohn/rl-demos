@@ -30,7 +30,7 @@ def discount_rewards(r, gamma, env_name, initial=None):
     return discounted_r
 
 
-def run_episode(env, model, server, checkpoint_dir, actions, diff_frame=True, preprocess=True):
+def run_episode(env, model, server, checkpoint_dir, actions, preprocess=True):
     ''' Generate trajectory by running single episode
 
     Runs a single episode in gym environment using a neural network policy.
@@ -42,24 +42,24 @@ def run_episode(env, model, server, checkpoint_dir, actions, diff_frame=True, pr
             respectively
     '''
 
-    ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
-    graph = tf.Graph()
-    sess = tf.Session(graph=graph)
+    # ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+    # graph = tf.Graph()
+    # sess = tf.Session(graph=graph)
 
-    with sess.graph.as_default():
-        model = two_layer_net(model['inp_dim'], model['num_hidden'], model['out_dim'])
-        net, saver = model['net'], model['saver']
-        input_ph = model['input_ph']
-        if ckpt and ckpt.model_checkpoint_path:
-            saver.restore(sess, ckpt.model_checkpoint_path)
-        else:
-            # hack code
-            print("NO CHECKPOINT FOUND!!!!!!!!!!!")
-            print("waiting for sometime and trying again.")
-            time.sleep(10)
-            ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
-            if ckpt and ckpt.model_checkpoint_path:
-                saver.restore(sess, ckpt.model_checkpoint_path)
+    # with sess.graph.as_default():
+    #     model = two_layer_net(model['inp_dim'], model['num_hidden'], model['out_dim'])
+    #     net, saver = model['net'], model['saver']
+    #     input_ph = model['input_ph']
+    #     if ckpt and ckpt.model_checkpoint_path:
+    #         saver.restore(sess, ckpt.model_checkpoint_path)
+    #     else:
+    #         # hack code
+    #         print("NO CHECKPOINT FOUND!!!!!!!!!!!")
+    #         print("waiting for sometime and trying again.")
+    #         time.sleep(10)
+    #         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+    #         if ckpt and ckpt.model_checkpoint_path:
+    #             saver.restore(sess, ckpt.model_checkpoint_path)
 
 
 
@@ -74,13 +74,11 @@ def run_episode(env, model, server, checkpoint_dir, actions, diff_frame=True, pr
             cur_x = prepro(observation)
         else:
             cur_x = observation.reshape((1, observation.shape[0]))
-        # set input to network to be difference image
-        if diff_frame:
-            x = cur_x - prev_x if prev_x is not None else np.zeros((1, cur_x.size))
-        else:
-            x = cur_x
 
+        # set input to network to be difference image
+        x = cur_x - prev_x if prev_x is not None else np.zeros((1, cur_x.size))
         prev_x = cur_x
+
         feed_dict = {input_ph: x}
 
         aprob = sess.run(net, feed_dict=feed_dict)
@@ -103,38 +101,28 @@ def run_episode(env, model, server, checkpoint_dir, actions, diff_frame=True, pr
     return [np.vstack(xs), np.array(acts), np.array(rs)]
 
 
-def run_episode_a3c(env, model, sess, actions, s_t=None,terminal=False, diff_frame=True, preprocess=None):
-    t_max = 200
-
-    state_ph, probs = model['states'], model['probs']
+def run_episode_a3c(env, model, sess, s_t=None,terminal=False):
+    t_max = 5
     
-    xs, acts, rs = [], [], []
+    states, acts, rs, values = [], [], [], []
+    observation = env.get_initial_state() if s_t is None else s_t
+    actions = env.gym_actions
+
     t = 0
-    observation = env.reset() if s_t is None else s_t
-    prev_x = None
-
     while not (terminal or (t==t_max)):
-        if preprocess:
-            cur_x = preprocess(observation)
-        else:
-            cur_x = observation.reshape((1, observation.shape[0]))
+
         # set input to network to be difference image
-        if diff_frame:
-            x = cur_x - prev_x if prev_x is not None else np.zeros((1, cur_x.size))
-            prev_x = cur_x
-        else:
-            x = cur_x
+        s = observation
+        aprob, value = model.get_policy_and_value(sess, s)
+        act = np.random.choice(len(actions), p=aprob.flatten())
+        observation, r_t, terminal, info = env.step(act)
 
-        aprob = sess.run(probs, feed_dict={state_ph: x})[0]
-        act = np.random.choice(actions.size, p=aprob.flatten())
-        observation, r_t, terminal, info = env.step(actions[act])
-
-        xs.append(x)
+        states.append(observation)
         acts.append(act)
-        #r_t = np.clip(r_t, -1, 1)
+        r_t = np.clip(r_t, -1, 1)
         rs.append(r_t)
+        values.append(value)
 
         t += 1
 
-
-    return (np.vstack(xs), np.array(acts), np.array(rs), observation, terminal)
+    return (np.array(states),np.array(acts),np.array(rs), np.array(values), observation,terminal, t)

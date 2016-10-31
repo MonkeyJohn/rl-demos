@@ -19,10 +19,9 @@ tf.app.flags.DEFINE_integer("task_index", 0, "Index of task within the job")
 # Flags for experiment settings
 tf.app.flags.DEFINE_string("env", "Pong-v0", "Gym environment to run")
 tf.app.flags.DEFINE_float("gamma", .99, "Discount factor")
-tf.app.flags.DEFINE_integer("num_episodes", 2,
-                            "Number of episodes to run before updating")
+tf.app.flags.DEFINE_integer("num_episodes", 2000,
+                            "Total no. of episodes to run")
 tf.app.flags.DEFINE_integer("num_steps", 1000000, "Maximum number of updates")
-tf.app.flags.DEFINE_boolean("diff_frame", True, "Whether to take difference of frames")
 tf.app.flags.DEFINE_boolean("preprocess", True, "Whether to preprocess input")
 tf.app.flags.DEFINE_string("actions", "2,3", "action space as comma separated strings")
 tf.app.flags.DEFINE_integer("inp_dim", 80*80, "Input dimension for problem")
@@ -48,7 +47,7 @@ def main(arg):
         with tf.device(tf.train.replica_device_setter(cluster=cluster)):
             env, env_name = gym.make(FLAGS.env), FLAGS.env
             gamma = FLAGS.gamma
-            diff_frame, check_process = FLAGS.diff_frame, FLAGS.preprocess
+            check_process = FLAGS.preprocess
             pre = preprocess if check_process else None 
             actions = np.array(map(int, FLAGS.actions.split(',')))
             n_actions = actions.size
@@ -81,21 +80,21 @@ def main(arg):
             s_t = None
             ep_rwd = 0
 
-            while not sv.should_stop() and n_e < 2000:
-                o_n, a_n, r_n, s_t, terminal = run_episode_a3c(env, 
+            while not sv.should_stop() and n_e < FLAGS.num_episodes:
+                o_n, a_n, r_n, s_t, prev_x, terminal = run_episode_a3c(env, 
                                                                model,
                                                                sess, 
                                                                actions, 
                                                                s_t, 
                                                                terminal,
-                                                               diff_frame=diff_frame,
                                                                preprocess=pre)
                 ep_rwd += np.sum(r_n)
 
                 if terminal:
                     R = 0
                 else:
-                    R = sess.run(value, feed_dict={state_ph:[s_t]})[0][0]
+                    x = pre(s_t) - prev_x
+                    R = sess.run(value, feed_dict={state_ph:x})[0][0]
 
                 disc_r = discount_rewards(r_n, 0.99, env_name, initial=R)
                 #disc_r -= np.mean(disc_r)

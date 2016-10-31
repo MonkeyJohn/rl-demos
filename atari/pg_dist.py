@@ -6,7 +6,7 @@ from util_pg import run_episode, discount_rewards
 import gym
 import numpy as np
 from model import two_layer_net
-from util import cluster_config
+from util import cluster_config, preprocess
 
 # Flags for defining the tf.train.ClusterSpec
 # flags if run on aws
@@ -33,7 +33,6 @@ tf.app.flags.DEFINE_float("gamma", .99, "Discount factor")
 tf.app.flags.DEFINE_integer("num_episodes", 2,
                             "Number of episodes to run before updating")
 tf.app.flags.DEFINE_integer("num_steps", 1000000, "Maximum number of updates")
-tf.app.flags.DEFINE_boolean("diff_frame", True, "Whether to take difference of frames")
 tf.app.flags.DEFINE_boolean("preprocess", True, "Whether to preprocess input")
 tf.app.flags.DEFINE_string("actions", "2,3", "action space as comma separated strings")
 tf.app.flags.DEFINE_integer("inp_dim", 80*80, "Input dimension for problem")
@@ -79,8 +78,8 @@ def main(arg):
         # values are shared through paramserver
         with tf.device(tf.train.replica_device_setter(cluster=cluster)):
             env, env_name = gym.make(FLAGS.env), FLAGS.env
-            diff_frame, preprocess = FLAGS.diff_frame, FLAGS.preprocess
-            # !!!PONG specific: only use up and down
+            check_process = FLAGS.preprocess
+            pre = preprocess if check_process else None      
             actions = np.array(map(int, FLAGS.actions.split(',')))
             n_actions = actions.size
 
@@ -104,7 +103,7 @@ def main(arg):
                                  summary_op=None,  # disable summary thread;crashes
                                  saver=saver,
                                  global_step=global_step,
-                                 save_model_secs=2)
+                                 save_model_secs=200)
 
         # The supervisor takes care of session initialization, restoring from
         # a checkpoint, and closing when done or an error occurs.
@@ -131,7 +130,7 @@ def main(arg):
 
                 for e in range(FLAGS.num_episodes):
                     # get a single episode
-                    o_n, a_n, r_n = run_episode(env,model,server,logdir,actions,diff_frame,preprocess)
+                    o_n, a_n, r_n = run_episode(env,model,server,logdir,actions,preprocess)
                     # get episode discounted return
                     disc_r = discount_rewards(r_n, FLAGS.gamma, env_name)
                     disc_r -= np.mean(disc_r)
